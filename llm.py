@@ -1,8 +1,13 @@
 import os
 import re
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
 
-def _load_dotenv(path: str = ".env") -> None:
+
+def _load_dotenv_file(path: str = ".env") -> None:
     if not os.path.exists(path):
         return
 
@@ -16,6 +21,14 @@ def _load_dotenv(path: str = ".env") -> None:
             key = key.strip()
             value = value.strip().strip('"').strip("'")
             os.environ.setdefault(key, value)
+
+
+def _load_environment() -> None:
+    if load_dotenv is not None:
+        load_dotenv()
+        return
+
+    _load_dotenv_file()
 
 
 def _strip_markdown_fences(text: str) -> str:
@@ -47,7 +60,7 @@ def _format_previous_attempts(previous_attempts: list[dict]) -> str:
 
 
 def propose_code(objective: str, previous_attempts: list[dict]) -> str:
-    _load_dotenv()
+    _load_environment()
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
