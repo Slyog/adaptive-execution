@@ -68,6 +68,8 @@ def parse_error(stderr: str) -> dict:
 def select_strategy(error_type: str | None) -> str:
     if error_type == "FileNotFoundError":
         return "handle_file_missing"
+    if error_type == "ModuleNotFoundError":
+        return "avoid_missing_dependency"
     if error_type == "ZeroDivisionError":
         return "add_guard"
     if error_type == "TypeError":
@@ -96,6 +98,15 @@ def _build_user_prompt(objective: str, previous_attempts: list[dict]) -> str:
     error_type = parsed_error["error_type"] or "UnknownError"
     error_message = parsed_error["error_message"]
     strategy = last_attempt.get("strategy") or select_strategy(parsed_error["error_type"])
+    strategy_guidance = ""
+    if strategy == "avoid_missing_dependency":
+        strategy_guidance = (
+            "For this strategy:\n"
+            "- Do not ask the user to install packages.\n"
+            "- Do not exit with failure because a package is missing.\n"
+            "- Prefer Python standard library alternatives.\n"
+            "- For HTTP calls, use urllib.request instead of requests.\n\n"
+        )
 
     return (
         f"Original objective:\n{objective}\n\n"
@@ -105,6 +116,7 @@ def _build_user_prompt(objective: str, previous_attempts: list[dict]) -> str:
         f"{error_type}: {error_message}\n\n"
         "Repair strategy:\n"
         f"{strategy}\n\n"
+        f"{strategy_guidance}"
         "Fix the code so that:\n"
         "- it no longer crashes\n"
         "- it follows the repair strategy\n"

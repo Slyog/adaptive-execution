@@ -1,0 +1,20 @@
+{
+  "id": "adaptive-execution",
+  "name": "adaptive-execution",
+  "description": "Calls the adaptive-execution HTTP service as an OpenClaw tool.",
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": ["openclaw_run"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "baseUrl": {
+        "type": "string"
+      }
+    }
+  }
+}

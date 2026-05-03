@@ -3,7 +3,7 @@ import sys
 from urllib import error, request
 
 
-URL = "http://127.0.0.1:8080/openclaw/run"
+URL = "http://127.0.0.1:8080/adaptive-execution/run"
 
 
 def main() -> int:

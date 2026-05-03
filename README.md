@@ -68,7 +68,7 @@ exit_code: 0
 success: True
 ```
 
-## OpenClaw API
+## Adaptive Execution API
 
 Start:
 
@@ -85,9 +85,36 @@ curl http://localhost:8080/health
 Run:
 
 ```bash
-curl -X POST http://localhost:8080/openclaw/run \
+curl -X POST http://localhost:8080/adaptive-execution/run \
   -H "Content-Type: application/json" \
   -d '{"objective":"Write Python code that prints hello"}'
+```
+
+## API Validation Example
+
+Validated through a GitHub Codespaces forwarded URL using `POST /adaptive-execution/run`.
+
+Request shape:
+
+```json
+{
+  "objective": "Write Python code that reads a file named data.txt and prints its content.",
+  "max_attempts": 3
+}
+```
+
+Observed result:
+
+- HTTP 200
+- `success: true`
+- Attempt 1 failed with `FileNotFoundError`
+- Attempt 2 repaired the code with `FileNotFoundError` handling
+
+Compact attempt summary:
+
+```text
+attempt 1: exit_code=1 success=false error_type=FileNotFoundError strategy=handle_file_missing
+attempt 2: exit_code=0 success=true error_type=null strategy=null
 ```
 
 ## Validation Example
@@ -125,3 +152,9 @@ This validates the Phase 1 behavior: runtime failure feedback is included in the
 Validated.
 
 The current implementation demonstrates a working adaptive retry loop using real execution feedback from the AI Execution Engine raw code execution endpoint.
+
+Current status:
+
+- CLI validated
+- API validated
+- structured repair strategy validated
