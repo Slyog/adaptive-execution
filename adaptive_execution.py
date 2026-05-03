@@ -2,6 +2,7 @@ import argparse
 import json
 from typing import Optional
 
+from adaptive_decisions import build_http_client_attempt_code, decide_next_attempt, initial_api_state
 from api_signals import extract_api_signals, extract_api_signals_from_outputs
 from client import ExecutionEngineClient
 from llm import API_ERROR_TYPES, parse_error, propose_code, select_strategy
@@ -28,10 +29,16 @@ def _api_error_was_handled(stdout: str, error_type: str | None) -> bool:
 def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
     client = ExecutionEngineClient()
     attempts = []
+    events = []
     final_attempt: Optional[dict] = None
+    deterministic_state = initial_api_state(objective)
 
     for attempt_number in range(1, max_attempts + 1):
-        code = propose_code(objective, attempts)
+        if deterministic_state is not None:
+            code = build_http_client_attempt_code(deterministic_state)
+        else:
+            code = propose_code(objective, attempts)
+        events.append({"event": "execute", "attempt_number": attempt_number, "code": code})
 
         if attempts and code.strip() == attempts[-1]["code"].strip():
             api_signals = extract_api_signals("", "duplicate attempt")
@@ -52,6 +59,15 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
             }
             attempts.append(attempt)
             final_attempt = attempt
+            events.append(
+                {
+                    "event": "observe",
+                    "attempt_number": attempt_number,
+                    "stdout": attempt["stdout"],
+                    "stderr": attempt["stderr"],
+                    "api_signals": api_signals,
+                }
+            )
 
             print(f"attempt_number: {attempt_number}")
             print(f"exit_code: {attempt['exit_code']}")
@@ -88,6 +104,16 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
 
         attempts.append(attempt)
         final_attempt = attempt
+        events.append(
+            {
+                "event": "observe",
+                "attempt_number": attempt_number,
+                "stdout": result["stdout"],
+                "stderr": result["stderr"],
+                "exit_code": result["exit_code"],
+                "api_signals": api_signals,
+            }
+        )
 
         print(f"attempt_number: {attempt_number}")
         print(f"exit_code: {attempt['exit_code']}")
@@ -95,6 +121,12 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
 
         if success:
             break
+        if deterministic_state is not None and attempt_number < max_attempts:
+            decision = decide_next_attempt(attempt, deterministic_state)
+            events.append({"event": "decision", "attempt_number": attempt_number, **decision})
+            if decision["action"] == "stop":
+                break
+            deterministic_state = decision["next_state"]
 
     api_signals = extract_api_signals_from_outputs(attempts)
     success = api_signals["success"] or bool(final_attempt and final_attempt["success"])
@@ -106,6 +138,7 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
         "api_signals": api_signals,
         "final_attempt": final_attempt,
         "attempts": attempts,
+        "events": events,
     }
 
 
