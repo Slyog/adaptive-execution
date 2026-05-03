@@ -1,0 +1,2 @@
+INFO:     127.0.0.1:54133 - "OPTIONS /adaptive-execution/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54134 - "GET /health HTTP/1.1" 200 OK

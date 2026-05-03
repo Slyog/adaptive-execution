@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -6,6 +7,15 @@ from adaptive_execution import run_adaptive_execution
 
 
 app = FastAPI(title="adaptive-execution")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://stunning-space-happiness-69j455w46v4247p7-8080.app.github.dev",
+    ],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class RunRequest(BaseModel):
