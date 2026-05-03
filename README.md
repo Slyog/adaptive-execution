@@ -68,6 +68,28 @@ exit_code: 0
 success: True
 ```
 
+## OpenClaw API
+
+Start:
+
+```powershell
+uvicorn api:app --host 0.0.0.0 --port 8080
+```
+
+Health:
+
+```powershell
+curl http://localhost:8080/health
+```
+
+Run:
+
+```bash
+curl -X POST http://localhost:8080/openclaw/run \
+  -H "Content-Type: application/json" \
+  -d '{"objective":"Write Python code that prints hello"}'
+```
+
 ## Validation Example
 
 Validated objective:
