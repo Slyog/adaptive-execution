@@ -34,6 +34,7 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
         code = propose_code(objective, attempts)
 
         if attempts and code.strip() == attempts[-1]["code"].strip():
+            api_signals = extract_api_signals("", "duplicate attempt")
             attempt = {
                 "attempt_number": attempt_number,
                 "code": code,
@@ -45,7 +46,9 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
                 "error_message": "duplicate attempt",
                 "strategy": "generic_fix",
                 "reason": "duplicate_attempt",
-                "api_signals": extract_api_signals("", "duplicate attempt"),
+                "failure_category": api_signals["failure_category"],
+                "is_infrastructure_failure": api_signals["is_infrastructure_failure"],
+                "api_signals": api_signals,
             }
             attempts.append(attempt)
             final_attempt = attempt
@@ -79,6 +82,7 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
             "error_message": parsed_error["error_message"],
             "strategy": strategy,
             "failure_category": api_signals["failure_category"],
+            "is_infrastructure_failure": api_signals["is_infrastructure_failure"],
             "api_signals": api_signals,
         }
 
@@ -93,9 +97,12 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
             break
 
     api_signals = extract_api_signals_from_outputs(attempts)
+    success = api_signals["success"] or bool(final_attempt and final_attempt["success"])
     return {
         "objective": objective,
-        "success": api_signals["success"] or bool(final_attempt and final_attempt["success"]),
+        "success": success,
+        "failure_category": api_signals["failure_category"],
+        "is_infrastructure_failure": api_signals["is_infrastructure_failure"],
         "api_signals": api_signals,
         "final_attempt": final_attempt,
         "attempts": attempts,
