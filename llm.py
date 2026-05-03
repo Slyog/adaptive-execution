@@ -93,6 +93,10 @@ def _build_user_prompt(objective: str, previous_attempts: list[dict]) -> str:
         "Fix the code so that:\n"
         "- it no longer crashes\n"
         "- it still fulfills the original objective\n\n"
+        "- Preserve the original objective and its given input values.\n"
+        "- Do not change given constants or input assignments just to avoid the error.\n"
+        "- Fix the program by adding validation, fallback behavior, or explicit error handling.\n"
+        "- The repaired code must still represent the original scenario.\n\n"
         "Do not repeat the same solution.\n"
         "Return only valid Python code."
     )
