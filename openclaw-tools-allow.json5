@@ -1,0 +1,11 @@
+{
+  "tools": {
+    "profile": "coding",
+    "alsoAllow": ["adaptive_execution_run"]
+  },
+  "gateway": {
+    "tools": {
+      "allow": ["adaptive_execution_run"]
+    }
+  }
+}

@@ -84,7 +84,6 @@ http://127.0.0.1:8080
 Override options:
 
 - OpenClaw plugin config: `plugins.entries.adaptive-execution.config.baseUrl`
-- environment variable: `ADAPTIVE_EXECUTION_URL`
 
 Example OpenClaw config:
 

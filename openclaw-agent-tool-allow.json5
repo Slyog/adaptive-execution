@@ -1,0 +1,9 @@
+{
+  agents: {
+    defaults: {
+      tools: {
+        alsoAllow: ["adaptive_execution_run"]
+      }
+    }
+  }
+}

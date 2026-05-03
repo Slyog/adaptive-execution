@@ -1,0 +1,5 @@
+{
+  "plugins": {
+    "allow": ["adaptive-execution"]
+  }
+}
