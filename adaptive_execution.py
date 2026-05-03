@@ -3,7 +3,25 @@ import json
 from typing import Optional
 
 from client import ExecutionEngineClient
-from llm import parse_error, propose_code, select_strategy
+from llm import API_ERROR_TYPES, parse_error, propose_code, select_strategy
+
+
+def _api_error_was_handled(stdout: str, error_type: str | None) -> bool:
+    if error_type not in API_ERROR_TYPES:
+        return False
+
+    text = (stdout or "").lower()
+    handled_markers = [
+        "handled non-2xx response",
+        "json parsing failed",
+        "response is not valid json",
+        "request timed out",
+        "connection error",
+        "authentication may be required",
+        "endpoint url/path should be validated",
+        "server returned an error",
+    ]
+    return any(marker in text for marker in handled_markers)
 
 
 def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
@@ -36,9 +54,11 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
             break
 
         result = client.run_code(code)
-        parsed_error = parse_error(result["stderr"])
+        parsed_error = parse_error(result["stderr"], result["stdout"])
 
-        success = result["exit_code"] == 0
+        api_error_type = parsed_error["error_type"] if parsed_error["error_type"] in API_ERROR_TYPES else None
+        handled_api_error = _api_error_was_handled(result["stdout"], api_error_type)
+        success = result["exit_code"] == 0 and (api_error_type is None or handled_api_error)
         strategy = None if success else select_strategy(parsed_error["error_type"])
         attempt = {
             "attempt_number": attempt_number,

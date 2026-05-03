@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from adaptive_execution import run_adaptive_execution
@@ -15,6 +16,45 @@ class RunRequest(BaseModel):
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+# Demo:
+# curl -X POST http://localhost:8880/demo/users \
+#   -H "Content-Type: application/json" \
+#   -H "Authorization: Bearer demo" \
+#   -d '{"email":"test@test.com","age":"25"}'
+# Expected: 400 Validation failed
+@app.post("/demo/users")
+async def create_demo_user(request: Request):
+    if "authorization" not in request.headers:
+        return JSONResponse(
+            status_code=401,
+            content={
+                "error": "Unauthorized",
+                "details": "missing bearer token",
+            },
+        )
+
+    payload = await request.json()
+    age = payload.get("age")
+    if type(age) is not int:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Validation failed",
+                "details": {
+                    "age": "must be integer",
+                },
+            },
+        )
+
+    return {
+        "status": "created",
+        "user": {
+            "email": payload.get("email"),
+            "age": age,
+        },
+    }
 
 
 def _run(request: RunRequest) -> dict:
