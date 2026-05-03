@@ -26,7 +26,7 @@ def _api_error_was_handled(stdout: str, error_type: str | None) -> bool:
     return any(marker in text for marker in handled_markers)
 
 
-def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
+def run_adaptive_execution(objective: str, max_attempts: int = 3, allow_network: bool = False) -> dict:
     client = ExecutionEngineClient()
     attempts = []
     events = []
@@ -74,7 +74,7 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
             print(f"success: {attempt['success']}")
             break
 
-        result = client.run_code(code)
+        result = client.run_code(code, allow_network=allow_network)
         api_signals = extract_api_signals(result["stdout"], result["stderr"])
         parsed_error = parse_error(result["stderr"], result["stdout"])
 
@@ -139,6 +139,7 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
         "final_attempt": final_attempt,
         "attempts": attempts,
         "events": events,
+        "allow_network": allow_network,
     }
 
 
@@ -146,9 +147,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run an adaptive execution loop.")
     parser.add_argument("objective", help="Objective for the LLM-generated Python code.")
     parser.add_argument("--max-attempts", type=int, default=3)
+    parser.add_argument("--allow-network", action="store_true")
     args = parser.parse_args()
 
-    result = run_adaptive_execution(args.objective, args.max_attempts)
+    result = run_adaptive_execution(args.objective, args.max_attempts, allow_network=args.allow_network)
     print(json.dumps(result, indent=2))
 
 

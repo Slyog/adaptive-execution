@@ -7,8 +7,8 @@ class ExecutionEngineClient:
     def __init__(self, base_url: str = "http://127.0.0.1:8000") -> None:
         self.base_url = base_url.rstrip("/")
 
-    def run_code(self, code: str) -> dict:
-        payload = json.dumps({"code": code}).encode("utf-8")
+    def run_code(self, code: str, allow_network: bool = False) -> dict:
+        payload = json.dumps({"code": code, "allow_network": bool(allow_network)}).encode("utf-8")
         headers = {"Content-Type": "application/json"}
         api_key = os.getenv("AI_EXECUTION_ENGINE_API_KEY") or os.getenv("API_KEY")
         if api_key:

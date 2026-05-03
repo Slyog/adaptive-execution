@@ -19,6 +19,7 @@ app.add_middleware(
 class RunRequest(BaseModel):
     objective: str
     max_attempts: int = Field(default=3, ge=1)
+    allow_network: bool = False
 
 
 @app.get("/health")
@@ -71,8 +72,12 @@ async def create_demo_user(request: Request):
 
 
 def _run(request: RunRequest) -> dict:
-    print(f"[adaptive-execution] objective={request.objective} max_attempts={request.max_attempts}")
-    return run_adaptive_execution(request.objective, request.max_attempts)
+    print(
+        f"[adaptive-execution] objective={request.objective} "
+        f"max_attempts={request.max_attempts} "
+        f"network={'enabled' if request.allow_network else 'none'}"
+    )
+    return run_adaptive_execution(request.objective, request.max_attempts, allow_network=request.allow_network)
 
 
 @app.post("/adaptive-execution/run")

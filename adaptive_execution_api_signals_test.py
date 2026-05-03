@@ -26,7 +26,7 @@ def test_run_response_includes_api_signal_fields():
         def __init__(self):
             self.index = 0
 
-        def run_code(self, code):
+        def run_code(self, code, allow_network=False):
             output = outputs[self.index]
             self.index += 1
             return output

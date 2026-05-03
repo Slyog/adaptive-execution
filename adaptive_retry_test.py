@@ -26,7 +26,8 @@ def test_deterministic_retry_reaches_success_with_decisions() -> None:
         def __init__(self):
             self.index = 0
 
-        def run_code(self, code):
+        def run_code(self, code, allow_network=False):
+            assert allow_network is True
             assert "headers=None" not in code
             output = outputs[self.index]
             self.index += 1
@@ -48,9 +49,10 @@ Print the full response and handle errors."""
         patch.object(adaptive_execution, "parse_error", lambda stderr, stdout: {"error_type": None, "error_message": ""}),
         patch.object(adaptive_execution, "select_strategy", lambda error_type: "generic_fix"),
     ):
-        result = adaptive_execution.run_adaptive_execution(objective, max_attempts=3)
+        result = adaptive_execution.run_adaptive_execution(objective, max_attempts=3, allow_network=True)
 
     assert result["success"] is True
+    assert result["allow_network"] is True
     assert result["api_signals"]["status_sequence"] == [401, 400, 200]
     assert result["api_signals"]["final_success"] is True
     assert result["api_signals"]["failure_category"] == "none"
