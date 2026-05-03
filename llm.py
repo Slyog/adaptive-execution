@@ -39,24 +39,63 @@ def _strip_markdown_fences(text: str) -> str:
     return stripped
 
 
-def _format_previous_attempts(previous_attempts: list[dict]) -> str:
-    if not previous_attempts:
-        return "No previous attempts."
+def parse_error(stderr: str) -> dict:
+    message = (stderr or "").strip()
+    if not message:
+        return {
+            "error_type": None,
+            "error_message": "",
+        }
 
-    formatted = []
-    for attempt in previous_attempts:
-        formatted.append(
-            "\n".join(
-                [
-                    f"Attempt {attempt['attempt_number']}:",
-                    f"Code:\n{attempt['code']}",
-                    f"stdout:\n{attempt['stdout']}",
-                    f"stderr:\n{attempt['stderr']}",
-                    f"exit_code: {attempt['exit_code']}",
-                ]
-            )
+    for line in reversed(message.splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+
+        match = re.match(r"^([A-Za-z_][A-Za-z0-9_.]*):\s*(.*)$", line)
+        if match:
+            return {
+                "error_type": match.group(1),
+                "error_message": match.group(2),
+            }
+
+    return {
+        "error_type": None,
+        "error_message": message,
+    }
+
+
+def _build_user_prompt(objective: str, previous_attempts: list[dict]) -> str:
+    if not previous_attempts:
+        return (
+            f"Objective:\n{objective}\n\n"
+            "Generate an initial Python solution.\n"
+            "Return only valid Python code."
         )
-    return "\n\n".join(formatted)
+
+    last_attempt = previous_attempts[-1]
+    parsed_error = {
+        "error_type": last_attempt.get("error_type"),
+        "error_message": last_attempt.get("error_message"),
+    }
+    if not parsed_error["error_type"] and not parsed_error["error_message"]:
+        parsed_error = parse_error(last_attempt.get("stderr", ""))
+
+    error_type = parsed_error["error_type"] or "UnknownError"
+    error_message = parsed_error["error_message"]
+
+    return (
+        f"Original objective:\n{objective}\n\n"
+        "You previously wrote the following code:\n\n"
+        f"{last_attempt['code']}\n\n"
+        "It failed with the following error:\n\n"
+        f"{error_type}: {error_message}\n\n"
+        "Fix the code so that:\n"
+        "- it no longer crashes\n"
+        "- it still fulfills the original objective\n\n"
+        "Do not repeat the same solution.\n"
+        "Return only valid Python code."
+    )
 
 
 def propose_code(objective: str, previous_attempts: list[dict]) -> str:
@@ -83,12 +122,7 @@ def propose_code(objective: str, previous_attempts: list[dict]) -> str:
         },
         {
             "role": "user",
-            "content": (
-                f"Objective:\n{objective}\n\n"
-                f"Previous attempts and real execution feedback:\n"
-                f"{_format_previous_attempts(previous_attempts)}\n\n"
-                "Return only the next complete Python program."
-            ),
+            "content": _build_user_prompt(objective, previous_attempts),
         },
     ]
 
