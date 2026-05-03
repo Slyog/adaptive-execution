@@ -9,9 +9,7 @@ from adaptive_execution import run_adaptive_execution
 app = FastAPI(title="adaptive-execution")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://stunning-space-happiness-69j455w46v4247p7-8080.app.github.dev",
-    ],
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,6 +24,11 @@ class RunRequest(BaseModel):
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/cors-debug")
+def cors_debug() -> dict:
+    return {"cors": "enabled"}
 
 
 # Demo:
