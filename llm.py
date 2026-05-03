@@ -1,5 +1,6 @@
 import os
 import re
+from urllib.parse import urlparse
 
 try:
     from dotenv import load_dotenv
@@ -150,6 +151,63 @@ def _is_api_objective(objective: str) -> bool:
     return "api endpoint" in lowered or "using python requests" in lowered or "http://" in lowered or "https://" in lowered
 
 
+def _objective_value(objective: str, key: str) -> str:
+    pattern = rf"^\s*{re.escape(key)}\s*:\s*(.+?)\s*$"
+    match = re.search(pattern, objective, re.IGNORECASE | re.MULTILINE)
+    return match.group(1).strip() if match else ""
+
+
+def _deterministic_http_client_probe(objective: str) -> str | None:
+    url = _objective_value(objective, "URL")
+    method = (_objective_value(objective, "Method") or "POST").upper()
+    if not url or method != "POST":
+        return None
+
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+
+    return f'''import http.client
+import json
+from urllib.parse import urlparse
+
+
+url = {url!r}
+parsed = urlparse(url)
+connection_class = http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
+host = parsed.netloc
+path = parsed.path or "/"
+if parsed.query:
+    path += "?" + parsed.query
+
+
+def send(payload, headers):
+    body = json.dumps(payload)
+    conn = connection_class(host, timeout=10)
+    try:
+        conn.request("POST", path, body=body, headers=headers)
+        response = conn.getresponse()
+        text = response.read().decode("utf-8", errors="replace")
+        print(response.status, text)
+    finally:
+        conn.close()
+
+
+send(
+    {{"email": "test@test.com", "age": "25"}},
+    {{"Content-Type": "application/json"}},
+)
+send(
+    {{"email": "test@test.com", "age": "25"}},
+    {{"Content-Type": "application/json", "Authorization": "Bearer demo"}},
+)
+send(
+    {{"email": "test@test.com", "age": 25}},
+    {{"Content-Type": "application/json", "Authorization": "Bearer demo"}},
+)
+'''
+
+
 def _api_strategy_guidance(strategy: str) -> str:
     strategy_details = {
         "add_auth_hint": "- If the response is 401 or Unauthorized, print that authentication may be required.\n",
@@ -245,6 +303,11 @@ def _build_user_prompt(objective: str, previous_attempts: list[dict]) -> str:
 
 
 def propose_code(objective: str, previous_attempts: list[dict]) -> str:
+    if not previous_attempts:
+        deterministic_code = _deterministic_http_client_probe(objective)
+        if deterministic_code is not None:
+            return deterministic_code
+
     _load_environment()
 
     api_key = os.getenv("OPENAI_API_KEY")
