@@ -1,4 +1,4 @@
-from adaptive_decisions import build_http_client_attempt_code, decide_next_attempt, initial_api_state
+from adaptive_decisions import build_http_client_attempt_code, decide_next_attempt, initial_api_state, normalize_url_for_docker_execution
 
 
 def test_deterministic_api_probe_uses_header_dicts() -> None:
@@ -36,6 +36,31 @@ Print the full response and handle errors."""
     assert '"age": 25' in code
 
 
+def test_codespaces_8880_url_normalizes_for_docker_execution() -> None:
+    url = "https://stunning-space-happiness-69j455w46v4247p7-8880.app.github.dev/demo/users"
+
+    assert normalize_url_for_docker_execution(url) == "http://host.docker.internal:8880/demo/users"
+
+
+def test_generated_code_uses_docker_host_for_codespaces_backend() -> None:
+    objective = """Debug a broken API request that returns 400 and explain the failure.
+
+Call this API endpoint using Python requests.
+URL: https://stunning-space-happiness-69j455w46v4247p7-8880.app.github.dev/demo/users
+Method: POST
+Print the full response and handle errors."""
+
+    state = initial_api_state(objective)
+    code = build_http_client_attempt_code(state)
+
+    assert state["url"] == "http://host.docker.internal:8880/demo/users"
+    assert "http://host.docker.internal:8880/demo/users" in code
+    assert "-8880.app.github.dev" not in code
+    assert 'path = parsed.path or "/"' in code
+
+
 if __name__ == "__main__":
     test_deterministic_api_probe_uses_header_dicts()
+    test_codespaces_8880_url_normalizes_for_docker_execution()
+    test_generated_code_uses_docker_host_for_codespaces_backend()
     print("http client generation tests passed")

@@ -84,7 +84,24 @@ def test_network_failure_decision_switches_to_host_docker_internal() -> None:
     assert decision["next_state"]["url"] == "http://host.docker.internal:8080/demo/users"
 
 
+def test_network_failure_decision_preserves_codespaces_path_and_uses_8880() -> None:
+    state = {
+        "url": "https://stunning-space-happiness-69j455w46v4247p7-8880.app.github.dev/demo/users",
+        "method": "POST",
+        "authorization": False,
+        "valid_payload": False,
+    }
+    decision = adaptive_execution.decide_next_attempt(
+        {"api_signals": {"is_infrastructure_failure": True}},
+        state,
+    )
+
+    assert decision["action"] == "switch_target_to_host_docker_internal"
+    assert decision["next_state"]["url"] == "http://host.docker.internal:8880/demo/users"
+
+
 if __name__ == "__main__":
     test_deterministic_retry_reaches_success_with_decisions()
     test_network_failure_decision_switches_to_host_docker_internal()
+    test_network_failure_decision_preserves_codespaces_path_and_uses_8880()
     print("adaptive retry tests passed")

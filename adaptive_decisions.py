@@ -2,6 +2,9 @@ import re
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 
+CODESPACES_HOST_PATTERN = re.compile(r"-([0-9]+)\.app\.github\.dev$", re.IGNORECASE)
+
+
 def objective_value(objective: str, key: str) -> str:
     pattern = rf"^\s*{re.escape(key)}\s*:\s*(.+?)\s*$"
     match = re.search(pattern, objective, re.IGNORECASE | re.MULTILINE)
@@ -11,6 +14,7 @@ def objective_value(objective: str, key: str) -> str:
 def initial_api_state(objective: str) -> dict | None:
     url = objective_value(objective, "URL")
     method = (objective_value(objective, "Method") or "POST").upper()
+    url = normalize_url_for_docker_execution(url)
     parsed = urlparse(url)
     if method != "POST" or parsed.scheme not in {"http", "https"} or not parsed.netloc:
         return None
@@ -22,12 +26,33 @@ def initial_api_state(objective: str) -> dict | None:
     }
 
 
+def normalize_url_for_docker_execution(url: str) -> str:
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    match = CODESPACES_HOST_PATTERN.search(hostname)
+    if match and match.group(1) == "8880":
+        return urlunparse(
+            ParseResult(
+                "http",
+                "host.docker.internal:8880",
+                parsed.path or "/",
+                parsed.params,
+                parsed.query,
+                parsed.fragment,
+            )
+        )
+    return url
+
+
 def _host_docker_url(url: str) -> str:
     parsed = urlparse(url)
+    normalized = normalize_url_for_docker_execution(url)
+    if normalized != url:
+        return normalized
     netloc = "host.docker.internal"
     if parsed.port:
         netloc = f"{netloc}:{parsed.port}"
-    return urlunparse(ParseResult(parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+    return urlunparse(ParseResult("http", netloc, parsed.path or "/", parsed.params, parsed.query, parsed.fragment))
 
 
 def decide_next_attempt(attempt: dict, state: dict) -> dict:
