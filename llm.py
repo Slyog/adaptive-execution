@@ -65,6 +65,18 @@ def parse_error(stderr: str) -> dict:
     }
 
 
+def select_strategy(error_type: str | None) -> str:
+    if error_type == "FileNotFoundError":
+        return "handle_file_missing"
+    if error_type == "ZeroDivisionError":
+        return "add_guard"
+    if error_type == "TypeError":
+        return "fix_type"
+    if error_type == "SyntaxError":
+        return "fix_syntax"
+    return "generic_fix"
+
+
 def _build_user_prompt(objective: str, previous_attempts: list[dict]) -> str:
     if not previous_attempts:
         return (
@@ -83,20 +95,24 @@ def _build_user_prompt(objective: str, previous_attempts: list[dict]) -> str:
 
     error_type = parsed_error["error_type"] or "UnknownError"
     error_message = parsed_error["error_message"]
+    strategy = last_attempt.get("strategy") or select_strategy(parsed_error["error_type"])
 
     return (
         f"Original objective:\n{objective}\n\n"
-        "You previously wrote the following code:\n\n"
+        "You previously wrote:\n\n"
         f"{last_attempt['code']}\n\n"
-        "It failed with the following error:\n\n"
+        "It failed with:\n\n"
         f"{error_type}: {error_message}\n\n"
+        "Repair strategy:\n"
+        f"{strategy}\n\n"
         "Fix the code so that:\n"
         "- it no longer crashes\n"
-        "- it still fulfills the original objective\n\n"
-        "- Preserve the original objective and its given input values.\n"
-        "- Do not change given constants or input assignments just to avoid the error.\n"
-        "- Fix the program by adding validation, fallback behavior, or explicit error handling.\n"
-        "- The repaired code must still represent the original scenario.\n\n"
+        "- it follows the repair strategy\n"
+        "- it preserves original inputs and constraints\n"
+        "- it still fulfills the objective\n\n"
+        "Do not change given constants or input assignments just to avoid the error.\n"
+        "Fix by adding validation, fallback behavior, or explicit error handling.\n"
+        "The repaired code must still represent the original scenario.\n\n"
         "Do not repeat the same solution.\n"
         "Return only valid Python code."
     )

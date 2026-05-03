@@ -3,7 +3,7 @@ import json
 from typing import Optional
 
 from client import ExecutionEngineClient
-from llm import parse_error, propose_code
+from llm import parse_error, propose_code, select_strategy
 
 
 def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
@@ -22,6 +22,9 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
                 "stderr": "duplicate attempt",
                 "exit_code": 1,
                 "success": False,
+                "error_type": None,
+                "error_message": "duplicate attempt",
+                "strategy": "generic_fix",
                 "reason": "duplicate_attempt",
             }
             attempts.append(attempt)
@@ -36,6 +39,7 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
         parsed_error = parse_error(result["stderr"])
 
         success = result["exit_code"] == 0
+        strategy = None if success else select_strategy(parsed_error["error_type"])
         attempt = {
             "attempt_number": attempt_number,
             "code": code,
@@ -45,6 +49,7 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
             "success": success,
             "error_type": parsed_error["error_type"],
             "error_message": parsed_error["error_message"],
+            "strategy": strategy,
         }
 
         attempts.append(attempt)
