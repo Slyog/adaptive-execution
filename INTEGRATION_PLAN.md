@@ -20,7 +20,7 @@ Agent tools must be declared in `openclaw.plugin.json` under:
 ```json
 {
   "contracts": {
-    "tools": ["openclaw_run"]
+    "tools": ["adaptive_execution_run"]
   }
 }
 ```
@@ -32,7 +32,7 @@ Tools are registered with a typed parameter schema and an `execute(toolCallId, p
 OpenClaw calls the plugin tool:
 
 ```text
-openclaw_run
+adaptive_execution_run
 ```
 
 Tool input:
@@ -104,7 +104,7 @@ Example OpenClaw config:
     }
   },
   tools: {
-    allow: ["openclaw_run"]
+    allow: ["adaptive_execution_run"]
   }
 }
 ```

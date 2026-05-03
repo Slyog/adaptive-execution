@@ -6,7 +6,7 @@
     "onStartup": true
   },
   "contracts": {
-    "tools": ["openclaw_run"]
+    "tools": ["adaptive_execution_run"]
   },
   "configSchema": {
     "type": "object",

@@ -41,7 +41,7 @@ export default definePluginEntry({
   description: "Calls the adaptive-execution HTTP service as an OpenClaw tool.",
   register(api) {
     api.registerTool({
-      name: "openclaw_run",
+      name: "adaptive_execution_run",
       description:
         "Run adaptive-execution for a Python coding objective and return the full attempt history.",
       parameters: Type.Object(
