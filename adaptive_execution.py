@@ -2,6 +2,7 @@ import argparse
 import json
 from typing import Optional
 
+from api_signals import extract_api_signals, extract_api_signals_from_outputs
 from client import ExecutionEngineClient
 from llm import API_ERROR_TYPES, parse_error, propose_code, select_strategy
 
@@ -44,6 +45,7 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
                 "error_message": "duplicate attempt",
                 "strategy": "generic_fix",
                 "reason": "duplicate_attempt",
+                "api_signals": extract_api_signals("", "duplicate attempt"),
             }
             attempts.append(attempt)
             final_attempt = attempt
@@ -54,11 +56,17 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
             break
 
         result = client.run_code(code)
+        api_signals = extract_api_signals(result["stdout"], result["stderr"])
         parsed_error = parse_error(result["stderr"], result["stdout"])
 
         api_error_type = parsed_error["error_type"] if parsed_error["error_type"] in API_ERROR_TYPES else None
         handled_api_error = _api_error_was_handled(result["stdout"], api_error_type)
-        success = result["exit_code"] == 0 and (api_error_type is None or handled_api_error)
+        success = api_signals["success"] or (
+            result["exit_code"] == 0
+            and not api_signals["is_infrastructure_failure"]
+            and api_signals["failure_category"] not in {"auth", "validation"}
+            and (api_error_type is None or handled_api_error)
+        )
         strategy = None if success else select_strategy(parsed_error["error_type"])
         attempt = {
             "attempt_number": attempt_number,
@@ -70,6 +78,8 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
             "error_type": parsed_error["error_type"],
             "error_message": parsed_error["error_message"],
             "strategy": strategy,
+            "failure_category": api_signals["failure_category"],
+            "api_signals": api_signals,
         }
 
         attempts.append(attempt)
@@ -82,9 +92,11 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3) -> dict:
         if success:
             break
 
+    api_signals = extract_api_signals_from_outputs(attempts)
     return {
         "objective": objective,
-        "success": bool(final_attempt and final_attempt["success"]),
+        "success": api_signals["success"] or bool(final_attempt and final_attempt["success"]),
+        "api_signals": api_signals,
         "final_attempt": final_attempt,
         "attempts": attempts,
     }
