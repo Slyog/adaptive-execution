@@ -46,6 +46,16 @@ def test_connection_refused_is_network_failure() -> None:
     assert signals["success"] is False
 
 
+def test_socket_gaierror_errno_minus_3_is_network_failure() -> None:
+    signals = extract_api_signals("", "socket.gaierror: [Errno -3] Try again")
+
+    assert signals["network_reachable"] is False
+    assert signals["is_infrastructure_failure"] is True
+    assert signals["failure_category"] == "network"
+    assert signals["success"] is False
+    assert signals["final_success"] is False
+
+
 def test_401_only_is_auth_failure() -> None:
     signals = extract_api_signals('401 {"error":"Unauthorized","details":"missing bearer token"}')
 
@@ -68,6 +78,7 @@ def main() -> None:
     test_success_sequence()
     test_success_sequence_across_outputs()
     test_connection_refused_is_network_failure()
+    test_socket_gaierror_errno_minus_3_is_network_failure()
     test_401_only_is_auth_failure()
     test_400_only_is_validation_failure()
     print("api signal tests passed")

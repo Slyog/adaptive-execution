@@ -2,6 +2,8 @@ import re
 
 
 NETWORK_ERROR_MARKERS = [
+    "[errno -3] try again",
+    "socket.gaierror",
     "connection refused",
     "name or service not known",
     "temporary failure in name resolution",
