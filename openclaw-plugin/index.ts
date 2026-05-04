@@ -34,6 +34,35 @@ function summarizeResult(result: AdaptiveExecutionResult): string {
   ].join("\n");
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parseArguments(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
+}
+
+function extractRunParams(params: unknown): OpenClawRunParams {
+  if (!isRecord(params)) {
+    return {} as OpenClawRunParams;
+  }
+
+  const argumentsValue = parseArguments(params.arguments);
+  if (isRecord(argumentsValue)) {
+    return argumentsValue as OpenClawRunParams;
+  }
+
+  return params as OpenClawRunParams;
+}
+
 export default definePluginEntry({
   id: "adaptive-execution",
   name: "adaptive-execution",
@@ -73,7 +102,7 @@ export default definePluginEntry({
           },
         },
         async execute(_toolCallId, params) {
-          const input = params as OpenClawRunParams;
+          const input = extractRunParams(params);
           const baseUrl = resolveBaseUrl(api.pluginConfig);
           const response = await fetch(`${baseUrl}/tools/adaptive_execution_run`, {
             method: "POST",

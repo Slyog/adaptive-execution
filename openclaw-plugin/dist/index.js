@@ -15,6 +15,30 @@ function summarizeResult(result) {
         `attempt_count: ${attempts.length}`,
     ].join("\n");
 }
+function isRecord(value) {
+    return typeof value === "object" && value !== null;
+}
+function parseArguments(value) {
+    if (typeof value !== "string") {
+        return value;
+    }
+    try {
+        return JSON.parse(value);
+    }
+    catch {
+        return value;
+    }
+}
+function extractRunParams(params) {
+    if (!isRecord(params)) {
+        return {};
+    }
+    const argumentsValue = parseArguments(params.arguments);
+    if (isRecord(argumentsValue)) {
+        return argumentsValue;
+    }
+    return params;
+}
 export default definePluginEntry({
     id: "adaptive-execution",
     name: "adaptive-execution",
@@ -52,7 +76,7 @@ export default definePluginEntry({
                 },
             },
             async execute(_toolCallId, params) {
-                const input = params;
+                const input = extractRunParams(params);
                 const baseUrl = resolveBaseUrl(api.pluginConfig);
                 const response = await fetch(`${baseUrl}/tools/adaptive_execution_run`, {
                     method: "POST",
