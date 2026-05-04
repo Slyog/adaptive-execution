@@ -235,7 +235,7 @@ This implementation demonstrates a working adaptive retry loop using real execut
 This layer can be exposed as a tool (e.g. for OpenClaw):
 
 ```python
-adaptive_execution_run(objective, max_attempts, allow_network)
+adaptive_execution_run(endpoint_url, method, objective, allow_network, max_attempts)
 ```
 
 Agents can invoke execution — but decisions remain deterministic and based on runtime signals.

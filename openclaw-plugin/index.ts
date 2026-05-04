@@ -1,14 +1,17 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 type OpenClawRunParams = {
+  endpoint_url: string;
+  method: string;
   objective: string;
+  allow_network?: boolean;
   max_attempts?: number;
 };
 
 type AdaptiveExecutionResult = {
-  success?: boolean;
+  final_success?: boolean;
+  status_sequence?: unknown[];
   attempts?: unknown[];
-  final_attempt?: unknown;
   [key: string]: unknown;
 };
 
@@ -18,13 +21,15 @@ function resolveBaseUrl(config: Record<string, unknown> | undefined): string {
     return configured.trim().replace(/\/+$/, "");
   }
 
-  return "http://127.0.0.1:8080";
+  return "http://127.0.0.1:8880";
 }
 
 function summarizeResult(result: AdaptiveExecutionResult): string {
   const attempts = Array.isArray(result.attempts) ? result.attempts : [];
+  const statusSequence = Array.isArray(result.status_sequence) ? result.status_sequence.join(",") : "";
   return [
-    `success: ${String(result.success)}`,
+    `final_success: ${String(result.final_success)}`,
+    `status_sequence: [${statusSequence}]`,
     `attempt_count: ${attempts.length}`,
   ].join("\n");
 }
@@ -38,20 +43,31 @@ export default definePluginEntry({
       {
         name: "adaptive_execution_run",
         description:
-          "Run adaptive-execution for a Python coding objective and return the full attempt history.",
+          "Run adaptive-execution for an API objective and return compact deterministic retry results.",
         parameters: {
           type: "object",
           additionalProperties: false,
-          required: ["objective"],
+          required: ["endpoint_url", "method", "objective", "allow_network", "max_attempts"],
           properties: {
+            endpoint_url: {
+              type: "string",
+              description: "API endpoint URL to call.",
+            },
+            method: {
+              type: "string",
+              description: "HTTP method for the API request.",
+            },
             objective: {
               type: "string",
               description: "Objective for adaptive-execution to solve.",
             },
+            allow_network: {
+              type: "boolean",
+              description: "Whether sandbox execution may use network access.",
+            },
             max_attempts: {
               type: "integer",
               minimum: 1,
-              default: 3,
               description: "Maximum adaptive attempts.",
             },
           },
@@ -59,12 +75,15 @@ export default definePluginEntry({
         async execute(_toolCallId, params) {
           const input = params as OpenClawRunParams;
           const baseUrl = resolveBaseUrl(api.pluginConfig);
-          const response = await fetch(`${baseUrl}/adaptive-execution/run`, {
+          const response = await fetch(`${baseUrl}/tools/adaptive_execution_run`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              endpoint_url: input.endpoint_url,
+              method: input.method,
               objective: input.objective,
-              max_attempts: input.max_attempts ?? 3,
+              allow_network: input.allow_network,
+              max_attempts: input.max_attempts,
             }),
           });
 

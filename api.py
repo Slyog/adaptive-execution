@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from adaptive_execution import run_adaptive_execution
+from adaptive_tool import adaptive_execution_run
 
 
 app = FastAPI(title="adaptive-execution")
@@ -20,6 +21,14 @@ class RunRequest(BaseModel):
     objective: str
     max_attempts: int = Field(default=3, ge=1)
     allow_network: bool = False
+
+
+class ToolRunRequest(BaseModel):
+    endpoint_url: str
+    method: str
+    objective: str
+    allow_network: bool = False
+    max_attempts: int = Field(default=3, ge=1)
 
 
 @app.get("/health")
@@ -83,6 +92,23 @@ def _run(request: RunRequest) -> dict:
 @app.post("/adaptive-execution/run")
 def run_adaptive_execution_endpoint(request: RunRequest) -> dict:
     return _run(request)
+
+
+@app.post("/tools/adaptive_execution_run")
+def adaptive_execution_run_tool_endpoint(request: ToolRunRequest) -> dict:
+    print(
+        f"[adaptive-execution-tool] endpoint_url={request.endpoint_url} "
+        f"method={request.method} "
+        f"max_attempts={request.max_attempts} "
+        f"network={'enabled' if request.allow_network else 'none'}"
+    )
+    return adaptive_execution_run(
+        endpoint_url=request.endpoint_url,
+        method=request.method,
+        objective=request.objective,
+        allow_network=request.allow_network,
+        max_attempts=request.max_attempts,
+    )
 
 
 @app.post("/openclaw/run")
