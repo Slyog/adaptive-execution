@@ -1,100 +1,191 @@
-# adaptive-execution
+# AI Execution System – adaptive-execution (Decision Layer)
 
-Minimal adaptive execution loop for improving Python code using real runtime feedback.
+Adaptive-execution is the decision layer of a 3-part AI execution system.
 
-## What This Is
+It observes real runtime failures, maps them to deterministic repair strategies, and retries execution until success.
 
-- A Phase 1 execution-first retry loop.
-- A small system that asks an LLM to propose Python code, executes that code, observes the result, and retries with failure context.
-- A client of the AI Execution Engine raw execution endpoint.
-- An in-memory process with explicit attempts and visible failures.
+---
 
-## What This Is Not
+## System Overview
 
-- Not a chatbot.
-- Not a UI.
-- Not a simulation.
-- Not a replacement for the AI Execution Engine.
-- Not a nested LLM execution engine.
-- Not a database-backed runtime.
+This repository is part of a 3-layer execution system:
 
-## Architecture
+| Layer | Role | Repo |
+|---|---|---|
+| **AI-Execution-Engine** | Executes Python code in a deterministic Docker runtime | [Slyog/AI-Execution-Engine](https://github.com/Slyog/AI-Execution-Engine) |
+| **adaptive-execution** *(this repo)* | Interprets failures and applies repair strategies | [Slyog/adaptive-execution](https://github.com/Slyog/adaptive-execution) |
+| **Tracewell Runtime** (UI) | Visualizes execution traces and decisions | [Slyog/execution-trace-ui](https://github.com/Slyog/execution-trace-ui) |
+
+**Architecture:**
 
 ```text
 objective
-  -> adaptive_execution.py
-  -> llm.py proposes Python code
-  -> client.py sends raw code to AI Execution Engine POST /execute
-  -> AI Execution Engine runs code in Docker
-  -> stdout, stderr, exit_code
-  -> adaptive_execution.py decides success or retries
+→ adaptive-execution     (decision layer)
+→ AI-Execution-Engine    (runtime)
+→ real API / environment
+→ stdout, stderr, exit_code
+→ adaptive-execution interprets + retries
 ```
 
-Responsibilities:
+---
 
-- `adaptive_execution.py` owns the retry loop and attempt structure.
-- `llm.py` proposes executable Python code.
-- `client.py` sends raw generated code to the AI Execution Engine.
-- AI Execution Engine executes code in Docker and returns runtime output.
+## What This Layer Does
 
-Success is determined by execution:
+- Runs an adaptive retry loop
+- Interprets runtime failures
+- Maps failures to repair strategies
+- Generates improved attempts
+- Stops when success is observed or attempts are exhausted
+
+> This layer does not execute code directly.  
+> It depends on the AI Execution Engine for runtime truth.
+
+---
+
+## What This Is Not
+
+- Not a chatbot
+- Not a UI
+- Not a simulation
+- Not a replacement for the execution engine
+- Not a database-backed system
+
+---
+
+## Core Behavior
+
+```text
+execute → observe → decision → execute → observe → decision → execute → observe
+```
+
+Each attempt:
+
+1. Code is proposed
+2. Code is executed in Docker (via AI-Execution-Engine)
+3. Runtime output is collected
+4. Failures are mapped to signals
+5. Deterministic repair rules are applied
+
+**Example:**
+
+```text
+Attempt 1 → failure
+  POST /users returns 401
+  auth_failure_observed = true
+
+Attempt 2 → partial fix
+  Authorization header added
+  POST /users returns 400
+  validation_failure_observed = true
+
+Attempt 3 → success
+  Payload fixed (age as integer)
+  POST /users returns 200
+  success_observed = true
+```
+
+---
+
+## Key Idea
+
+> **LLM proposals are not trusted. Execution output is the source of truth.**  
+> All repair decisions are based on observed runtime signals.
+
+---
+
+## Architecture (Detailed)
+
+```text
+objective
+  → adaptive_execution.py
+  → llm.py proposes Python code
+  → client.py sends raw code to AI Execution Engine POST /execute
+  → AI Execution Engine runs code in Docker
+  → stdout, stderr, exit_code
+  → adaptive_execution.py decides success or retries
+```
+
+**Responsibilities:**
+
+| File | Role |
+|---|---|
+| `adaptive_execution.py` | Owns retry loop and attempt structure |
+| `llm.py` | Proposes executable Python code |
+| `client.py` | Sends code to AI Execution Engine |
+| AI Execution Engine | Executes code and returns runtime output |
+
+---
+
+## Success Criteria
+
+For CLI runs:
 
 ```text
 exit_code == 0
 ```
 
-## How To Run
+For API runs:
 
-Requirements:
+```json
+{
+  "final_success": true,
+  "status_sequence": [401, 400, 200]
+}
+```
+
+---
+
+## How To Run (CLI)
+
+**Requirements:**
 
 - AI Execution Engine running on `http://127.0.0.1:8000`
 - Docker available to the AI Execution Engine
-- `OPENAI_API_KEY` set in the environment or local `.env`
+- `OPENAI_API_KEY` set in environment or `.env`
 
-Run:
+**Run:**
 
 ```powershell
 python adaptive_execution.py "Write Python code that reads a file named data.txt and prints its content."
 ```
 
-The loop prints each attempt:
+**Output:**
 
 ```text
 attempt_number: 1
 exit_code: 1
 success: False
+
 attempt_number: 2
 exit_code: 0
 success: True
 ```
 
+---
+
 ## Adaptive Execution API
 
-Start:
+**Start:**
 
 ```powershell
-uvicorn api:app --host 0.0.0.0 --port 8080
+uvicorn api:app --host 0.0.0.0 --port 8880
 ```
 
-Health:
+**Health check:**
 
 ```powershell
-curl http://localhost:8080/health
+curl http://localhost:8880/health
 ```
 
-Run:
+**Run:**
 
 ```bash
-curl -X POST http://localhost:8080/adaptive-execution/run \
+curl -X POST http://localhost:8880/adaptive-execution/run \
   -H "Content-Type: application/json" \
   -d '{"objective":"Write Python code that prints hello"}'
 ```
 
-## API Validation Example
-
-Validated through a GitHub Codespaces forwarded URL using `POST /adaptive-execution/run`.
-
-Request shape:
+**Example request body:**
 
 ```json
 {
@@ -103,58 +194,48 @@ Request shape:
 }
 ```
 
-Observed result:
+**Observed behavior:**
 
-- HTTP 200
-- `success: true`
-- Attempt 1 failed with `FileNotFoundError`
-- Attempt 2 repaired the code with `FileNotFoundError` handling
-
-Compact attempt summary:
+- Attempt 1 fails with `FileNotFoundError`
+- Attempt 2 adapts using failure context
+- Attempt 2 succeeds
 
 ```text
-attempt 1: exit_code=1 success=false error_type=FileNotFoundError strategy=handle_file_missing
-attempt 2: exit_code=0 success=true error_type=null strategy=null
+attempt 1: exit_code=1  success=false  error_type=FileNotFoundError  strategy=handle_file_missing
+attempt 2: exit_code=0  success=true   error_type=null               strategy=null
 ```
 
-## Validation Example
-
-Validated objective:
-
-```text
-Write Python code that reads a file named data.txt and prints its content.
-```
-
-Observed behavior:
-
-- Attempt 1 generated code that tried to read `data.txt` directly.
-- Attempt 1 failed with `FileNotFoundError`.
-- Attempt 2 used the previous `stderr` failure context.
-- Attempt 2 succeeded by checking whether `data.txt` exists before reading it.
-
-This validates the Phase 1 behavior: runtime failure feedback is included in the next LLM proposal, and the loop adapts based on real execution output.
+---
 
 ## Current Limitations
 
-- Phase 1 only.
-- Uses in-memory attempt history only.
-- No database.
-- No UI.
-- No background worker.
-- No concurrency.
-- No evaluation beyond `exit_code == 0`.
-- Depends on the AI Execution Engine for Docker execution.
-- Depends on an LLM provider for code proposals.
-- Does not modify the AI Execution Engine.
+- In-memory attempt history only
+- No persistence / database
+- No concurrency
+- No UI — handled by [Tracewell Runtime](https://github.com/Slyog/execution-trace-ui)
+- Depends on AI Execution Engine for Docker execution
+- LLM used only for code proposals, not for decision-making
+
+---
 
 ## Phase 1 Status
 
-Validated.
+**Validated.**
 
-The current implementation demonstrates a working adaptive retry loop using real execution feedback from the AI Execution Engine raw code execution endpoint.
-
-Current status:
+This implementation demonstrates a working adaptive retry loop using real execution feedback from the AI Execution Engine.
 
 - CLI validated
 - API validated
-- structured repair strategy validated
+- Structured repair strategy validated
+
+---
+
+## Optional: Agent Integration
+
+This layer can be exposed as a tool (e.g. for OpenClaw):
+
+```python
+adaptive_execution_run(objective, max_attempts, allow_network)
+```
+
+Agents can invoke execution — but decisions remain deterministic and based on runtime signals.
