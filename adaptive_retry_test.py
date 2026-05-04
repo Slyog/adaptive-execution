@@ -56,6 +56,11 @@ Print the full response and handle errors."""
     assert result["api_signals"]["status_sequence"] == [401, 400, 200]
     assert result["api_signals"]["final_success"] is True
     assert result["api_signals"]["failure_category"] == "none"
+    final_attempt_signals = result["attempts"][2]["api_signals"]
+    assert final_attempt_signals["success_observed"] is True
+    assert final_attempt_signals["final_success"] is True
+    assert final_attempt_signals["success"] is True
+    assert final_attempt_signals["failure_category"] == "none"
     assert [event["event"] for event in result["events"]] == [
         "execute",
         "observe",
@@ -68,6 +73,11 @@ Print the full response and handle errors."""
     ]
     assert result["events"][2]["action"] == "add_authorization_header"
     assert result["events"][5]["action"] == "fix_payload_types"
+    final_observe_signals = result["events"][7]["api_signals"]
+    assert final_observe_signals["success_observed"] is True
+    assert final_observe_signals["final_success"] is True
+    assert final_observe_signals["success"] is True
+    assert final_observe_signals["failure_category"] == "none"
 
 
 def test_network_failure_decision_switches_to_host_docker_internal() -> None:

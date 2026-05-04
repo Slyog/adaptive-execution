@@ -26,6 +26,16 @@ def _api_error_was_handled(stdout: str, error_type: str | None) -> bool:
     return any(marker in text for marker in handled_markers)
 
 
+def _normalize_attempt_api_signals(api_signals: dict) -> dict:
+    normalized = dict(api_signals)
+    if 200 in normalized.get("status_sequence", []):
+        normalized["success_observed"] = True
+        normalized["final_success"] = True
+        normalized["success"] = True
+        normalized["failure_category"] = "none"
+    return normalized
+
+
 def run_adaptive_execution(objective: str, max_attempts: int = 3, allow_network: bool = False) -> dict:
     client = ExecutionEngineClient()
     attempts = []
@@ -76,6 +86,7 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3, allow_network:
 
         result = client.run_code(code, allow_network=allow_network)
         api_signals = extract_api_signals(result["stdout"], result["stderr"])
+        attempt_api_signals = _normalize_attempt_api_signals(api_signals)
         parsed_error = parse_error(result["stderr"], result["stdout"])
 
         api_error_type = parsed_error["error_type"] if parsed_error["error_type"] in API_ERROR_TYPES else None
@@ -97,9 +108,9 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3, allow_network:
             "error_type": parsed_error["error_type"],
             "error_message": parsed_error["error_message"],
             "strategy": strategy,
-            "failure_category": api_signals["failure_category"],
-            "is_infrastructure_failure": api_signals["is_infrastructure_failure"],
-            "api_signals": api_signals,
+            "failure_category": attempt_api_signals["failure_category"],
+            "is_infrastructure_failure": attempt_api_signals["is_infrastructure_failure"],
+            "api_signals": attempt_api_signals,
         }
 
         attempts.append(attempt)
@@ -111,7 +122,7 @@ def run_adaptive_execution(objective: str, max_attempts: int = 3, allow_network:
                 "stdout": result["stdout"],
                 "stderr": result["stderr"],
                 "exit_code": result["exit_code"],
-                "api_signals": api_signals,
+                "api_signals": attempt_api_signals,
             }
         )
 
